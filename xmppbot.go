@@ -2,6 +2,8 @@ package xmppbot
 
 import (
 	"context"
+	"log" // @todo: slog?
+
 	"mellium.im/xmpp"
 	"mellium.im/xmpp/jid"
 )
@@ -14,7 +16,17 @@ func New() *Bot {
 	return nil
 }
 
-type Bot struct{}
+type Bot struct{
+	Target
+	Error error
+}
+
+func (b *Bot) reportError(err error) {
+	if err != nil {
+		b.Error = err
+		log.Printf("xmppbot: %s", b.Error)
+	}
+}
 
 func (b *Bot) Login(user, pass string) *Bot {
 	return b
@@ -30,6 +42,9 @@ func (b *Bot) SendMessage(msg Message) {
 func (b *Bot) ListenToCommand(f ListenFunc) {
 }
 
+func (b *Bot) SendTextMessage(text string) {
+}
+
 type (
 	Target struct{}
 	RoomTarget struct{
@@ -39,6 +54,10 @@ type (
 		Target
 	}
 )
+
+func (t Target) ToTarget() Target {
+	return t
+}
 
 func (t Target) Room(room string) RoomTarget {
 	return RoomTarget{t}
@@ -50,7 +69,7 @@ func (t Target) Contact(contact string) ContactTarget {
 
 type Message struct{
 	Target Target
-	//Text string
+	Content string
 	From Target
 }
 
