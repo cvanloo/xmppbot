@@ -2,12 +2,14 @@ package xmppbot_test
 
 import (
 	"log"
+	"context"
 	"github.com/cvanloo/xmppbot"
 )
 
 func ExampleUsage() {
 	room := xmppbot.Target{}.Room("bots@conference.example.com")
-	bot := xmppbot.New().Login("username@example.com", "password").Join(room.ToTarget())
+	ctx := context.Background()
+	bot := xmppbot.New(ctx).Login("username@example.com", "password").Join(room)
 	if bot.Error != nil {
 		log.Fatal(bot.Error)
 	}
