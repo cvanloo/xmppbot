@@ -5,30 +5,33 @@ import (
 	"fmt"
 	"log" // @todo: slog?
 	"runtime"
+	"encoding/xml"
+	"mellium.im/xmlstream"
 
 	"mellium.im/xmpp"
 	"mellium.im/xmpp/jid"
 	"mellium.im/sasl"
 	"mellium.im/xmpp/muc"
 	"mellium.im/xmpp/mux"
+	"mellium.im/xmpp/stanza"
 )
 
 func New(ctx context.Context) *Bot {
+	b := &Bot{}
 	c := &muc.Client{}
 	m := mux.New(
 		"",
 		muc.HandleClient(c),
+		mux.MessageFunc(stanza.GroupChatMessage, xml.Name{}, b.handleMessage),
 	)
-	b := &Bot{
-		Ctx: ctx,
-		Mux: m,
-		MucClient: c,
-	}
+	b.Ctx = ctx
+	b.Mux = m
+	b.MucClient = c
 	return b
 }
 
 type Bot struct{
-	Target
+	ContactTarget
 	Ctx context.Context
 	Session *xmpp.Session
 	Mux *mux.ServeMux
@@ -45,6 +48,14 @@ func (b *Bot) reportError(err error) bool {
 		return false
 	}
 	return true
+}
+
+func (b *Bot) handleMessage(m stanza.Message, t xmlstream.TokenReadEncoder) error {
+	d := xml.NewTokenDecoder(t)
+	msg := MessageBody{}
+	err := d.Decode(&msg)
+	log.Printf("received group chat:\n\tmessage: %s\n\tbody: %s\n\terr: %v\n", m, msg.Body, err)
+	return nil
 }
 
 func (b *Bot) Login(user, pass string) *Bot {
@@ -74,13 +85,25 @@ func (b *Bot) Join(t RoomTarget) *Bot {
 	return b
 }
 
+type MessageBody struct {
+	stanza.Message
+	Body string `xml:"body"`
+}
+
 func (b *Bot) SendMessage(msg Message) {
+	body := MessageBody{
+		Message: stanza.Message{
+			To:   msg.Target.Jid,
+			From: msg.From.Jid,
+			Type: stanza.GroupChatMessage, // @todo: or stanza.ChatMessage
+		},
+		Body: msg.Content,
+	}
+	err := b.Session.Encode(b.Ctx, body)
+	b.reportError(err)
 }
 
 func (b *Bot) ListenToCommand(f ListenFunc) {
-}
-
-func (b *Bot) SendTextMessage(text string) {
 }
 
 type (
@@ -115,6 +138,11 @@ func (t Target) Contact(contact string) ContactTarget {
 	return ContactTarget{t}
 }
 
+func (c ContactTarget) SendMessage(msg Message) {
+	// @todo: impl
+	panic("this contact can't send messages")
+}
+
 type Message struct{
 	Target Target
 	Content string
@@ -133,7 +161,9 @@ func (m Message) Tag(t Target) Message {
 	return m
 }
 
-func (m Message) SendFrom(t Target) {
+func (m Message) SendFrom(t ContactTarget) {
+	// @todo: impl
+	t.SendMessage(m)
 }
 
 type ListenFunc func(req Message)
