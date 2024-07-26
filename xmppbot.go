@@ -54,7 +54,8 @@ func (b *Bot) handleMessage(m stanza.Message, t xmlstream.TokenReadEncoder) erro
 	d := xml.NewTokenDecoder(t)
 	msg := MessageBody{}
 	err := d.Decode(&msg)
-	log.Printf("received group chat:\n\tmessage: %s\n\tbody: %s\n\terr: %v\n", m, msg.Body, err)
+	_ = err
+	//log.Printf("received group chat:\n\tmessage: %s\n\tbody: %s\n\terr: %v\n", m, msg.Body, err)
 	return nil
 }
 
@@ -91,15 +92,18 @@ type MessageBody struct {
 }
 
 func (b *Bot) SendMessage(msg Message) {
+	log.Printf("message target: %q", msg.Target)
 	body := MessageBody{
 		Message: stanza.Message{
-			To:   msg.Target.Jid,
-			From: msg.From.Jid,
-			Type: stanza.GroupChatMessage, // @todo: or stanza.ChatMessage
+			//XMLName: xml.Name{Space:"jabber:client", Local:"message"},
+			To:   msg.Target.Jid.Bare(),
+			//From: msg.From.Jid.Bare(),
+			//Type: stanza.GroupChatMessage, // @todo: or stanza.ChatMessage
 		},
 		Body: msg.Content,
 	}
 	err := b.Session.Encode(b.Ctx, body)
+	log.Printf("message sent: %q", body)
 	b.reportError(err)
 }
 
@@ -150,10 +154,12 @@ type Message struct{
 }
 
 func (m Message) To(t Target) Message {
+	m.Target = t
 	return m
 }
 
 func (m Message) Text(text string) Message {
+	m.Content = text
 	return m
 }
 
